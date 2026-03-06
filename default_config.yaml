@@ -1,0 +1,4 @@
+browser_http_headers: {}
+browser_model_extra_params: {}
+browser_backend: "playwright_cli"
+migrated: false

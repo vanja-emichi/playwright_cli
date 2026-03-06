@@ -1,0 +1,10 @@
+name: browser
+title: Browser
+description: AI-powered browser automation using Playwright CLI exclusively. Gives agents a browser_agent tool to navigate, interact with, and extract data from websites.
+version: 2.0.0
+note: "Required for browser automation. Install Playwright via pip install playwright && playwright install chromium. "
+settings_sections:
+  - agent
+per_project_config: false
+per_agent_config: false
+always_enabled: false
