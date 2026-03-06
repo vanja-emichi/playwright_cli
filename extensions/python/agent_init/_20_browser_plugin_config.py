@@ -12,12 +12,12 @@ Naming map (intentional difference):
   (old core key removed: browser_model_kwargs)
 """
 import logging
-from python.helpers.extension import Extension
-from python.helpers import plugins
+from helpers.extension import Extension
+from helpers import plugins
 
 log = logging.getLogger(__name__)
 
-_PLUGIN_NAME = "browser"
+_PLUGIN_NAME = "a0_playwright_cli"
 
 
 class BrowserPluginConfig(Extension):

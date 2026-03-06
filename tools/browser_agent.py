@@ -16,18 +16,18 @@ if _PLUGIN_ROOT not in sys.path:
     sys.path.insert(0, _PLUGIN_ROOT)
 
 # Also ensure /a0 is on sys.path for python.helpers.* imports
-_A0_ROOT = os.path.abspath(os.path.join(_PLUGIN_ROOT, "..", ".."))
+_A0_ROOT = os.path.abspath(os.path.join(_PLUGIN_ROOT, "..", "..", ".."))
 if _A0_ROOT not in sys.path:
     sys.path.insert(0, _A0_ROOT)
 
 import asyncio
 import time
 
-from python.helpers.tool import Tool, Response
-from python.helpers import files, persist_chat, strings
-from python.helpers.print_style import PrintStyle
-from python.helpers.secrets import get_secrets_manager
-from python.helpers.dirty_json import DirtyJson
+from helpers.tool import Tool, Response
+from helpers import files, persist_chat, strings
+from helpers.print_style import PrintStyle
+from helpers.secrets import get_secrets_manager
+from helpers.dirty_json import DirtyJson
 
 
 class BrowserAgent(Tool):

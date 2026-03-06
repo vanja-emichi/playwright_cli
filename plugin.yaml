@@ -1,4 +1,4 @@
-name: browser
+name: a0_playwright_cli
 title: Browser
 description: AI-powered browser automation using Playwright CLI exclusively. Gives agents a browser_agent tool to navigate, interact with, and extract data from websites.
 version: 2.0.0
