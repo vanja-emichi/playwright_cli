@@ -66,7 +66,7 @@ def _load_module(name: str, relpath: str):
 
 # ---------------------------------------------------------------------------
 # Result wrapper — implements the interface BrowserAgent.execute() expects
-# from DeferredTask.result() return value
+# Result wrapper returned by PlaywrightCliTask.result()
 # ---------------------------------------------------------------------------
 
 class PlaywrightCliResult:
@@ -89,7 +89,7 @@ class PlaywrightCliResult:
 
 # ---------------------------------------------------------------------------
 # Task wrapper — implements the interface BrowserAgent.execute() expects
-# from State.start_task() return value (DeferredTask-compatible)
+# Task wrapper returned by PlaywrightCliBackend.start_task()
 # ---------------------------------------------------------------------------
 
 class PlaywrightCliTask:
@@ -232,7 +232,7 @@ class PlaywrightCliBackend:
 
     def start_task(self, task: str) -> PlaywrightCliTask:
         """Schedule _run_task as an asyncio task. Must be called from async context.
-        Returns PlaywrightCliTask (DeferredTask-compatible wrapper).
+        Returns PlaywrightCliTask wrapping the asyncio task.
         """
         # Pre-flight check: binary must exist
         if not self.validate_binary():
