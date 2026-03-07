@@ -1,20 +1,17 @@
 """PlaywrightCliBackend — Microsoft Playwright CLI browser automation backend.
 
-Alternative to browser_use for structured DOM snapshots, element refs (e1/e2...),
-mobile emulation, network mocking, and DevTools tracing.
+Provides structured DOM snapshots with stable element refs (e1/e2...), mobile emulation,
+network mocking, and DevTools tracing via playwright-cli shell commands.
 
-Reuses existing Playwright browser binaries from the ms-playwright cache — zero additional downloads.
+Reuses existing Playwright browser binaries from the ms-playwright cache.
 Binary path: 3x dirname from ensure_playwright_binary() = PLAYWRIGHT_BROWSERS_PATH.
 
 Session ID: f"a0-{context_id_hex[:16]}" — 16 hex chars, negligible collision probability.
 
-Interface contract (must match State class API used by BrowserAgent.execute()):
+Public API (used by BrowserAgent tool):
   start_task(task) -> PlaywrightCliTask   (with .is_ready(), .is_alive(), .result(), .kill(), .execute_inside())
   kill_task()                              (sync, cancels asyncio task + closes CLI session)
-  use_agent = None                         (prevents AttributeError at execute() line 309)
-  task: PlaywrightCliTask | None           (for execute_inside + is_ready checks in get_update)
-  async get_page() -> None                 (stub — playwright_cli has no page object)
-  async get_selector_map() -> dict         (stub — not used by playwright_cli path)
+  task: PlaywrightCliTask | None
 
 LLM decision format:
   {"action": "goto|click|fill|type|snapshot|done",
@@ -96,18 +93,15 @@ class PlaywrightCliResult:
 # ---------------------------------------------------------------------------
 
 class PlaywrightCliTask:
-    """Wraps an asyncio.Task and exposes the DeferredTask-compatible API
-    that BrowserAgent.execute() uses to poll progress and retrieve results.
+    """Wraps an asyncio.Task and exposes the async task interface
+    used by BrowserAgent to poll progress and retrieve results.
 
-    Required by BrowserAgent.execute():
-      .is_ready()           → True when task is done (loop exit condition)
+    API:
+      .is_ready()           → True when task is done
       .is_alive()           → True while task is running
       .result()             → awaitable returning PlaywrightCliResult
       .kill()               → cancel the task
       .execute_inside(fn)   → run coroutine fn in current async context
-    Also accessed via state.task:
-      state.task.is_ready()          → at execute() line ~389
-      state.task.execute_inside(fn)  → at execute() line ~390
     """
 
     def __init__(self, async_task: asyncio.Task, backend: "PlaywrightCliBackend"):
@@ -155,13 +149,10 @@ class PlaywrightCliTask:
 class PlaywrightCliBackend:
     """Browser automation backend using Microsoft Playwright CLI.
 
-    Implements the State-compatible interface expected by BrowserAgent:
+    Public API used by BrowserAgent tool:
       start_task(task) -> PlaywrightCliTask
       kill_task()
-      use_agent = None
       task: PlaywrightCliTask | None
-      async get_page() -> None
-      async get_selector_map() -> dict
     """
 
     MAX_STEPS = 50
@@ -172,23 +163,10 @@ class PlaywrightCliBackend:
     def __init__(self, agent):
         self.agent = agent
         # State interface compatibility attributes
-        self.use_agent = None  # Prevents AttributeError at execute() line 309
-        self.task: Optional[PlaywrightCliTask] = None  # Accessed at execute() line 389
+        self.task: Optional[PlaywrightCliTask] = None
         # Internal state
         self._async_task: Optional[asyncio.Task] = None
         self._result: Optional[str] = None
-
-    # ── State interface stubs ─────────────────────────────────────────────────
-
-    async def get_page(self):
-        """Stub — PlaywrightCliBackend has no page object (CLI manages browser state).
-        Returns None, causing get_update() to skip the screenshot/log branch.
-        """
-        return None
-
-    async def get_selector_map(self) -> dict:
-        """Stub — not used by PlaywrightCliBackend path."""
-        return {}
 
     # ── Session helpers ──────────────────────────────────────────────────────
 

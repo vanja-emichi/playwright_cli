@@ -1,9 +1,8 @@
-"""browser_agent Tool — browser plugin for Agent Zero.
+"""browser_agent Tool — Playwright CLI browser automation for Agent Zero.
 
-Playwright CLI-only implementation. browser-use removed in v2.1.0 pivot.
-This tool proxies all browser tasks to PlaywrightCliBackend, which runs
-playwright-cli shell commands, takes YAML DOM snapshots, and feeds
-structured element refs (e1/e2/...) back to the Agent Zero LLM loop.
+Proxies all browser tasks to PlaywrightCliBackend, which runs playwright-cli
+shell commands, takes YAML DOM snapshots, and feeds structured element refs
+(e1/e2/...) back to the Agent Zero LLM loop.
 """
 import os
 import sys
@@ -24,10 +23,9 @@ import asyncio
 import time
 
 from helpers.tool import Tool, Response
-from helpers import files, persist_chat, strings
+from helpers import files, persist_chat
 from helpers.print_style import PrintStyle
 from helpers.secrets import get_secrets_manager
-from helpers.dirty_json import DirtyJson
 
 
 class BrowserAgent(Tool):
@@ -101,20 +99,9 @@ class BrowserAgent(Tool):
             return Response(message=answer_text, break_loop=False)
 
         # Parse result from PlaywrightCliBackend
+        # PlaywrightCliResult.final_result() always returns a string
         if result:
-            if isinstance(result, dict):
-                answer_text = result.get("response", "Task completed successfully")
-                page_summary = result.get("page_summary", "")
-                try:
-                    if isinstance(answer_text, str) and answer_text.strip().startswith("{"):
-                        answer_data = DirtyJson.parse_string(answer_text)
-                        answer_text = strings.dict_to_text(answer_data)
-                except Exception:
-                    pass
-                if page_summary:
-                    answer_text = f"{answer_text}\n\nPage Summary: {page_summary}"
-            else:
-                answer_text = str(result) if result else "Task completed successfully"
+            answer_text = str(result) if result else "Task completed successfully"
         else:
             answer_text = "Task completed but no result returned."
 
