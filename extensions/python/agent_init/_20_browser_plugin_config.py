@@ -21,7 +21,7 @@ _PLUGIN_NAME = "a0_playwright_cli"
 
 
 class BrowserPluginConfig(Extension):
-    async def execute(self, **kwargs) -> None:
+    def execute(self, **kwargs) -> None:
         cfg = plugins.get_plugin_config(_PLUGIN_NAME, self.agent)
         if not cfg:
             log.warning(
