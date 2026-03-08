@@ -267,6 +267,47 @@ playwright-cli tracing-stop
 playwright-cli close
 ```
 
+## Data Extraction
+
+For extracting structured data from pages, prefer **snapshot** (gives full DOM) or **eval** for specific queries.
+
+```bash
+# Get page title
+playwright-cli eval "document.title"
+
+# Get text content of an element by ref
+playwright-cli eval "el => el.textContent" e5
+
+# Get an attribute value
+playwright-cli eval "el => el.getAttribute('href')" e3
+
+# Get all links on the page
+playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('a')).map(a=>({text:a.textContent.trim(),href:a.href})))"
+
+# Get all meta tags
+playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('meta')).map(m=>({name:m.name||m.property,content:m.content})).filter(m=>m.name))"
+
+# Get JSON-LD schema data (structured data)
+playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('script[type=\"application/ld+json\"]')).map(s=>JSON.parse(s.textContent)))"
+
+# Get all headings
+playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('h1,h2,h3')).map(h=>({tag:h.tagName,text:h.textContent.trim()})))"
+
+# Get input values
+playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('input,select,textarea')).map(i=>({name:i.name,value:i.value,type:i.type})))"
+```
+
+> **Note:** For complex multi-step data processing, take a snapshot first (`playwright-cli snapshot --filename=page.yaml`), then parse the YAML file using Python. This is more reliable than complex eval expressions.
+
+```bash
+# Recommended for complex extraction:
+playwright-cli open https://example.com
+playwright-cli snapshot --filename=/tmp/page.yaml
+# Then parse /tmp/page.yaml with Python for structured data
+```
+
+> **Important:** `run-code` (in DevTools section) runs a full async Playwright script from a FILE — do NOT use it for inline JS evaluation. Use `eval` for inline JS.
+
 ## Specific tasks
 
 * **Request mocking** [references/request-mocking.md](references/request-mocking.md)
