@@ -101,7 +101,7 @@ class BrowserAgent(Tool):
         # Parse result from PlaywrightCliBackend
         # PlaywrightCliResult.final_result() always returns a string
         if result:
-            answer_text = str(result) if result else "Task completed successfully"
+            answer_text = result.final_result() if hasattr(result, 'final_result') else str(result)
         else:
             answer_text = "Task completed but no result returned."
 
