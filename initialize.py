@@ -122,6 +122,29 @@ def initialize(plugin_dir: str = None) -> bool:
     else:
         print("⚠️  Skipping config write — Chromium path unknown")
 
+    # ── Step 4: Create /opt/google/chrome/chrome wrapper ────────────────────────
+    # playwright-cli always looks for 'chrome' distribution at /opt/google/chrome/chrome.
+    # In Docker (no sandbox, no display), we need a wrapper script that adds
+    # --no-sandbox and --headless=new so playwright-cli works out of the box.
+    if chromium_path:
+        wrapper_dir = "/opt/google/chrome"
+        wrapper_path = os.path.join(wrapper_dir, "chrome")
+        try:
+            os.makedirs(wrapper_dir, exist_ok=True)
+            wrapper_content = (
+                "#!/bin/bash\n"
+                f'exec "{chromium_path}" --no-sandbox --disable-setuid-sandbox --headless=new "$@"\n'
+            )
+            with open(wrapper_path, "w") as f:
+                f.write(wrapper_content)
+            os.chmod(wrapper_path, 0o755)
+            print(f"✅ Chrome wrapper created: {wrapper_path} -> {chromium_path}")
+        except Exception as e:
+            print(f"⚠️  Could not create Chrome wrapper: {e}")
+            log.warning("Failed to create Chrome wrapper: %s", e)
+    else:
+        print("⚠️  Skipping Chrome wrapper — Chromium path unknown")
+
     # ── Summary ───────────────────────────────────────────────────────────────
     print()
     if success:
