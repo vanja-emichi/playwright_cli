@@ -194,8 +194,18 @@ class PlaywrightCliBackend:
         return os.path.dirname(os.path.dirname(os.path.dirname(binary_path)))
 
     def _make_env(self) -> dict:
-        """Build subprocess environment with PLAYWRIGHT_BROWSERS_PATH set."""
-        return {**os.environ, "PLAYWRIGHT_BROWSERS_PATH": self.get_browsers_path()}
+        """Build subprocess environment for playwright-cli.
+
+        playwright-cli reads ~/.playwright/cli.config.json for the browser binary path.
+        cwd=~ (set in _run_cmd) ensures cli.config.json is found automatically.
+
+        PLAYWRIGHT_BROWSERS_PATH must NOT be set — it is a Python Playwright env var and
+        overrides cli.config.json when present, causing playwright-cli to look in the
+        wrong directory (e.g. /a0/tmp/playwright which only has headless_shell, not chrome).
+        """
+        env = dict(os.environ)
+        env.pop("PLAYWRIGHT_BROWSERS_PATH", None)  # ensure not inherited from parent process
+        return env
 
     @staticmethod
     def validate_binary() -> bool:
