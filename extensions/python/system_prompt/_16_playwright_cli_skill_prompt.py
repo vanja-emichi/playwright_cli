@@ -2,11 +2,10 @@
 
 Runs at slot _16_ (system prompt build phase).
 Injects the playwright-cli SKILL.md content into the agent system prompt so the
-agent understands what browser capabilities are available through the browser_agent tool.
+agent can use playwright-cli commands directly via code_execution_tool (terminal).
 
-The browser_agent tool uses PlaywrightCliBackend internally — the skill content here
-serves as reference documentation only. The agent should always use the browser_agent
-tool for browser tasks, NOT run playwright-cli commands directly in the terminal.
+The agent should use playwright-cli commands directly in the terminal for all
+browser/web tasks — NOT the browser_agent tool.
 """
 import logging
 import os
@@ -45,10 +44,13 @@ class PlaywrightCliSkillPrompt(Extension):
             return
 
         system_prompt.append(
-            "\n\n# Browser Automation Skill Reference (playwright-cli)\n"
-            "The `browser_agent` tool uses **playwright-cli** as its browser backend.\n"
-            "The following skill reference describes available browser commands and capabilities.\n"
-            "Always use the `browser_agent` tool for web browsing — do not run playwright-cli commands directly in the terminal.\n\n"
+            "\n\n# Browser Automation — Important Instructions\n"
+            "The **playwright_cli** skill is active for all browser and web tasks.\n"
+            "- **ALWAYS** use `playwright-cli` commands directly via `code_execution_tool` (terminal runtime) for any web browsing, navigation, or data extraction tasks.\n"
+            "- Use a named session with `-s=<name>` to keep state between commands.\n"
+            "- Always `close` the session when done.\n"
+            "- **DO NOT** use the `browser_agent` tool — use `playwright-cli` terminal commands directly instead.\n\n"
+            "# Browser Automation Skill (playwright-cli)\n"
             + skill_content
         )
         log.debug("PlaywrightCliSkillPrompt: playwright-cli SKILL.md injected into system prompt")
