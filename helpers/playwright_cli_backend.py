@@ -238,10 +238,45 @@ class PlaywrightCliBackend:
 
     # ── Public lifecycle API ──────────────────────────────────────────────────
 
+    @staticmethod
+    def _ensure_chrome_wrapper() -> None:
+        """Ensure /opt/google/chrome/chrome wrapper script exists.
+
+        playwright-cli always looks for 'chrome' at /opt/google/chrome/chrome.
+        In Docker there is no sandbox and no display, so we create a wrapper
+        script that injects --no-sandbox and --headless=new automatically.
+
+        Called from start_task() on every invocation — safe to call repeatedly,
+        skips creation if wrapper already exists and is executable.
+        """
+        wrapper_path = "/opt/google/chrome/chrome"
+        if os.path.isfile(wrapper_path) and os.access(wrapper_path, os.X_OK):
+            return  # already exists
+        try:
+            pw_helper = _load_module("playwright_helper", "helpers/playwright.py")
+            chrome_binary = pw_helper.ensure_playwright_binary()
+        except Exception as e:
+            log.warning("_ensure_chrome_wrapper: could not find Chrome binary: %s", e)
+            return
+        try:
+            os.makedirs("/opt/google/chrome", exist_ok=True)
+            wrapper_content = (
+                "#!/bin/bash\n"
+                f'exec "{chrome_binary}" --no-sandbox --disable-setuid-sandbox --headless=new "$@"\n'
+            )
+            with open(wrapper_path, "w") as f:
+                f.write(wrapper_content)
+            os.chmod(wrapper_path, 0o755)
+            log.info("_ensure_chrome_wrapper: created %s -> %s", wrapper_path, chrome_binary)
+        except Exception as e:
+            log.warning("_ensure_chrome_wrapper: failed to create wrapper: %s", e)
+
     def start_task(self, task: str) -> PlaywrightCliTask:
         """Schedule _run_task as an asyncio task. Must be called from async context.
         Returns PlaywrightCliTask wrapping the asyncio task.
         """
+        # Ensure Chrome wrapper exists at /opt/google/chrome/chrome (restart-proof)
+        self._ensure_chrome_wrapper()
         # Pre-flight check: binary must exist
         if not self.validate_binary():
             raise RuntimeError(
