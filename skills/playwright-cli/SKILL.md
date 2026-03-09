@@ -297,54 +297,68 @@ playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('h1,h2,
 playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('input,select,textarea')).map(i=>({name:i.name,value:i.value,type:i.type})))"
 ```
 
-### When to use eval vs run-code
+### When to use eval vs Python subprocess
+
+> ⚠️ **`run-code` is currently broken** — it always fails with `SyntaxError: Invalid regular expression flags` in this environment. Do NOT use `run-code`. Use `eval` for simple queries, or Python subprocess for complex extraction.
 
 | Situation | Approach |
 |---|---|
 | Simple query (title, one selector, one attribute) | `playwright-cli eval "..."` |
-| Complex JS with quotes/escaping issues | Write to `/tmp/script.js`, use `run-code` |
-| Multi-step async logic (wait, scroll, interact) | Write to `/tmp/script.js`, use `run-code` |
-| Any time eval is failing due to quote nesting | Write to `/tmp/script.js`, use `run-code` |
+| Complex JS (JSON-LD, microdata, many selectors) | **Python subprocess** (see below) |
+| eval failing due to shell escaping | **Python subprocess** (see below) |
 
-### Complex extraction with run-code (recommended for anything non-trivial)
+### Complex extraction with Python subprocess (recommended for anything non-trivial)
 
-When `eval` gets messy with escaping, write the JS to a temp file first:
+Shell escaping with `eval` is fragile. For complex JS, use Python subprocess to pass arguments cleanly:
 
-```bash
-# Step 1: Write the script to a file
-cat > /tmp/extract.js << 'EOF'
-async function run(page) {
-  // Wait for page to be fully loaded
-  await page.waitForLoadState('networkidle');
+~~~python
+import subprocess, json
 
-  // Extract JSON-LD schema data
-  const schemas = await page.evaluate(() => {
-    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-    return Array.from(scripts).map(s => JSON.parse(s.textContent));
-  });
+cwd = '/path/to/working/dir'  # playwright-cli reads session from cwd
 
-  // Extract all links
-  const links = await page.evaluate(() => {
-    return Array.from(document.querySelectorAll('a[href]')).map(a => ({
-      text: a.textContent.trim(),
-      href: a.href
-    }));
-  });
+def pcli(*args):
+    r = subprocess.run(['playwright-cli'] + list(args), capture_output=True, text=True, cwd=cwd)
+    return r.stdout, r.stderr
 
-  console.log(JSON.stringify({ schemas, links }, null, 2));
-}
-EOF
+def peval(js):
+    out, _ = pcli('eval', js)
+    lines = out.split('\n')
+    result_lines = []
+    in_result = False
+    for line in lines:
+        if '### Result' in line:
+            in_result = True
+            continue
+        if in_result and line.strip().startswith('###'):
+            break
+        if in_result:
+            result_lines.append(line)
+    raw = '\n'.join(result_lines).strip()
+    try:
+        return json.loads(json.loads(raw))  # double-parse: result is JSON-encoded string
+    except:
+        try: return json.loads(raw)
+        except: return raw
 
-# Step 2: Open the page (if not already open)
-playwright-cli open https://example.com
+# Open browser ONCE — reuse session for all pages
+pcli('open', 'https://example.com')
 
-# Step 3: Run the script against the open page
-playwright-cli run-code /tmp/extract.js
-```
+# Extract JSON-LD schemas
+schemas = peval('JSON.stringify(Array.from(document.querySelectorAll(\'script[type="application/ld+json"]\')).map(function(s){try{return JSON.parse(s.textContent)}catch(e){return{error:e.message}}}))')
+print(json.dumps(schemas, indent=2))
 
-The `run-code` approach works with any complexity of JavaScript — no shell escaping headaches.
+# Navigate to another page — use goto, NOT open (avoids bot detection on repeated open)
+pcli('goto', 'https://example.com/products')
+schemas2 = peval('JSON.stringify(Array.from(document.querySelectorAll(\'script[type="application/ld+json"]\')).map(function(s){try{return JSON.parse(s.textContent)}catch(e){return{error:e.message}}}))')
+print(json.dumps(schemas2, indent=2))
 
-> **Important:** `run-code` runs a full async Playwright script from a **FILE** — it receives `page` as argument via the `run(page)` function. Do NOT pass inline JS to `run-code`. Use `eval` for inline one-liners.
+# Close when done
+pcli('close')
+~~~
+
+> ⚠️ **Bot detection**: Some sites (Cloudflare WAF etc.) block headless browsers. Open the browser **once** and use `goto` for navigation between pages. Re-opening with `open` per page triggers bot detection. If you get 403 responses, the site has bot protection — try fetching via `curl` instead for static content.
+
+> ⚠️ **`run-code` is broken**: `playwright-cli run-code` consistently fails with `SyntaxError: Invalid regular expression flags` — do NOT use it. Python subprocess is the reliable alternative.
 
 ## Specific tasks
 
