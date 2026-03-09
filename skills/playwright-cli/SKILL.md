@@ -297,19 +297,50 @@ playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('h1,h2,
 playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('input,select,textarea')).map(i=>({name:i.name,value:i.value,type:i.type})))"
 ```
 
-### When to use eval vs Python subprocess
-
-> ⚠️ **`run-code` is currently broken** — it always fails with `SyntaxError: Invalid regular expression flags` in this environment. Do NOT use `run-code`. Use `eval` for simple queries, or Python subprocess for complex extraction.
+### When to use eval vs run-code
 
 | Situation | Approach |
 |---|---|
 | Simple query (title, one selector, one attribute) | `playwright-cli eval "..."` |
-| Complex JS (JSON-LD, microdata, many selectors) | **Python subprocess** (see below) |
-| eval failing due to shell escaping | **Python subprocess** (see below) |
+| Complex JS (wait, interact, multi-step logic) | `playwright-cli run-code "async page => { ... }"` |
+| eval failing due to shell escaping in terminal | Python subprocess with `playwright-cli eval` |
 
-### Complex extraction with Python subprocess (recommended for anything non-trivial)
+### run-code — inline JS string
 
-Shell escaping with `eval` is fragile. For complex JS, use Python subprocess to pass arguments cleanly:
+`run-code` takes an **inline JavaScript string** with signature `async page => { ... }`. Do NOT pass a file path.
+
+```bash
+# Grant permissions and set geolocation
+playwright-cli run-code "async page => {
+  await page.context().grantPermissions(['geolocation']);
+  await page.context().setGeolocation({ latitude: 37.7749, longitude: -122.4194 });
+}"
+
+# Extract JSON-LD schema data
+playwright-cli run-code "async page => {
+  await page.waitForLoadState('networkidle');
+  const schemas = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('script[type=\"application/ld+json\"]'))
+      .map(s => { try { return JSON.parse(s.textContent); } catch(e) { return {error: e.message}; } })
+  );
+  console.log(JSON.stringify(schemas, null, 2));
+}"
+
+# Wait for a specific element before extracting
+playwright-cli run-code "async page => {
+  await page.waitForSelector('.product-price', { timeout: 5000 });
+  const prices = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('.product-price')).map(el => el.textContent.trim())
+  );
+  console.log(JSON.stringify(prices));
+}"
+```
+
+> ⚠️ **Common mistake**: `playwright-cli run-code /tmp/script.js` will fail with `SyntaxError: Invalid regular expression flags` because the path is parsed as JavaScript. Always pass an inline string.
+
+### Python subprocess — for complex multi-page tasks
+
+When `run-code` inline strings get unwieldy with escaping, use Python subprocess:
 
 ~~~python
 import subprocess, json
@@ -342,23 +373,15 @@ def peval(js):
 
 # Open browser ONCE — reuse session for all pages
 pcli('open', 'https://example.com')
-
-# Extract JSON-LD schemas
 schemas = peval('JSON.stringify(Array.from(document.querySelectorAll(\'script[type="application/ld+json"]\')).map(function(s){try{return JSON.parse(s.textContent)}catch(e){return{error:e.message}}}))')
 print(json.dumps(schemas, indent=2))
 
-# Navigate to another page — use goto, NOT open (avoids bot detection on repeated open)
+# Navigate to another page — use goto, NOT open (avoids bot detection)
 pcli('goto', 'https://example.com/products')
-schemas2 = peval('JSON.stringify(Array.from(document.querySelectorAll(\'script[type="application/ld+json"]\')).map(function(s){try{return JSON.parse(s.textContent)}catch(e){return{error:e.message}}}))')
-print(json.dumps(schemas2, indent=2))
-
-# Close when done
 pcli('close')
 ~~~
 
-> ⚠️ **Bot detection**: Some sites (Cloudflare WAF etc.) block headless browsers. Open the browser **once** and use `goto` for navigation between pages. Re-opening with `open` per page triggers bot detection. If you get 403 responses, the site has bot protection — try fetching via `curl` instead for static content.
-
-> ⚠️ **`run-code` is broken**: `playwright-cli run-code` consistently fails with `SyntaxError: Invalid regular expression flags` — do NOT use it. Python subprocess is the reliable alternative.
+> ⚠️ **Bot detection**: Some sites (Cloudflare WAF etc.) block headless browsers. Open the browser **once** and use `goto` for navigation between pages. Re-opening with `open` per page triggers bot detection. If you get 403 responses, the site has bot protection — try `curl` for static content instead.
 
 ## Specific tasks
 
