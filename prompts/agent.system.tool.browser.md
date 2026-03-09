@@ -1,51 +1,25 @@
-### browser_agent:
+### browser_agent (playwright-cli):
 
-Subordinate agent that controls a real browser via **Playwright CLI**.
-Provides structured DOM snapshots with stable element references (`e1`, `e2`, ...).
+> **Important:** For all browser and web tasks, load and use the **playwright-cli** skill via `code_execution_tool` (terminal runtime) — do NOT call `browser_agent` directly.
 
-**When to use:**
-- Navigate, click, fill forms, extract content, take screenshots
-- Multi-step web workflows (login → navigate → interact → extract)
-- Any task requiring live browser interaction
-
-**How to instruct:**
-- Be specific and task-based — describe the full goal in one message
-- Include credentials, URLs, and any required values inline
-- Use `reset: true` to spawn a fresh browser session
-- Use `reset: false` to continue an existing session (start message with "Considering open pages...")
-- Do NOT use the phrase "wait for instructions" — end tasks definitively
-
-**Capabilities:**
-- Navigation: `goto`, `go-back`, `go-forward`, `reload`
-- Interaction: `click`, `dblclick`, `fill`, `type`, `press`, `select`, `check`, `uncheck`, `hover`
-- Tabs: `tab-new`, `tab-close`
-- Capture: `snapshot` (DOM), `screenshot`
-
-**Downloads:** saved to `/a0/tmp/downloads` by default.
-
-**Pass secrets** using the secret alias format — they are masked and substituted automatically.
-
-usage:
-```json
-{
-  "thoughts": ["I need to log in to..."],
-  "headline": "Opening new browser session for login",
-  "tool_name": "browser_agent",
-  "tool_args": {
-    "message": "Open https://example.com, log in with email user@example.com and password <provided_password>, then extract the account balance shown on the dashboard. End task.",
-    "reset": "true"
-  }
-}
+The `playwright-cli` skill is available in your skill list. Load it first:
 ```
+skills_tool:load playwright-cli
+```
+Then use `playwright-cli` commands via `code_execution_tool` terminal to interact with the browser.
 
-```json
-{
-  "thoughts": ["Continuing from previous page..."],
-  "headline": "Continuing existing browser session",
-  "tool_name": "browser_agent",
-  "tool_args": {
-    "message": "Considering open pages, click the Submit button and confirm the result. End task.",
-    "reset": "false"
-  }
-}
+**Use playwright-cli for:**
+- Navigating websites and web pages
+- Clicking, filling forms, submitting
+- Extracting content, data scraping
+- Taking screenshots
+- Login and authenticated sessions
+- Any task involving a real browser
+
+**Example workflow:**
+```bash
+playwright-cli open https://example.com
+playwright-cli snapshot
+playwright-cli click e3
+playwright-cli close
 ```
