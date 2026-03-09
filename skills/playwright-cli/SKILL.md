@@ -297,16 +297,54 @@ playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('h1,h2,
 playwright-cli eval "JSON.stringify(Array.from(document.querySelectorAll('input,select,textarea')).map(i=>({name:i.name,value:i.value,type:i.type})))"
 ```
 
-> **Note:** For complex multi-step data processing, take a snapshot first (`playwright-cli snapshot --filename=page.yaml`), then parse the YAML file using Python. This is more reliable than complex eval expressions.
+### When to use eval vs run-code
+
+| Situation | Approach |
+|---|---|
+| Simple query (title, one selector, one attribute) | `playwright-cli eval "..."` |
+| Complex JS with quotes/escaping issues | Write to `/tmp/script.js`, use `run-code` |
+| Multi-step async logic (wait, scroll, interact) | Write to `/tmp/script.js`, use `run-code` |
+| Any time eval is failing due to quote nesting | Write to `/tmp/script.js`, use `run-code` |
+
+### Complex extraction with run-code (recommended for anything non-trivial)
+
+When `eval` gets messy with escaping, write the JS to a temp file first:
 
 ```bash
-# Recommended for complex extraction:
+# Step 1: Write the script to a file
+cat > /tmp/extract.js << 'EOF'
+async function run(page) {
+  // Wait for page to be fully loaded
+  await page.waitForLoadState('networkidle');
+
+  // Extract JSON-LD schema data
+  const schemas = await page.evaluate(() => {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    return Array.from(scripts).map(s => JSON.parse(s.textContent));
+  });
+
+  // Extract all links
+  const links = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll('a[href]')).map(a => ({
+      text: a.textContent.trim(),
+      href: a.href
+    }));
+  });
+
+  console.log(JSON.stringify({ schemas, links }, null, 2));
+}
+EOF
+
+# Step 2: Open the page (if not already open)
 playwright-cli open https://example.com
-playwright-cli snapshot --filename=/tmp/page.yaml
-# Then parse /tmp/page.yaml with Python for structured data
+
+# Step 3: Run the script against the open page
+playwright-cli run-code /tmp/extract.js
 ```
 
-> **Important:** `run-code` (in DevTools section) runs a full async Playwright script from a FILE — do NOT use it for inline JS evaluation. Use `eval` for inline JS.
+The `run-code` approach works with any complexity of JavaScript — no shell escaping headaches.
+
+> **Important:** `run-code` runs a full async Playwright script from a **FILE** — it receives `page` as argument via the `run(page)` function. Do NOT pass inline JS to `run-code`. Use `eval` for inline one-liners.
 
 ## Specific tasks
 
